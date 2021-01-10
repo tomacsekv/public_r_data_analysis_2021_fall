@@ -77,8 +77,6 @@ Count the number of ingredients and filter all the cocktails that has that many.
 
 ## 7. How many ingredients appear in only one cocktail (rare ingredient)?
 
-Count all cocktails with only one ingredient, and
-
 ```{r}
 
 ```
@@ -103,9 +101,6 @@ Create a matrix that shows all cocktail names as rows and all ingredients as col
 
 ```
 
-```{r}
-
-```
 
 Congrats, the bar is now officially open!
 
