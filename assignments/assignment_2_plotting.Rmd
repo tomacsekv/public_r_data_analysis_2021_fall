@@ -1,6 +1,6 @@
 ---
 title: 'Assignment 2: Data visualization'
-author: "Tamas Nagy"
+author: "Vivien Tomacsek"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -20,23 +20,38 @@ You will have to create 3 plots based on the datasets and instructions detailed 
 knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
 library(tidytuesdayR)
+library(viridis)
+library(scales)
 ```
 
 ## Task 1: Climbing expeditions
 
-The 2020-09-22 TidyTueday datasets are about climbing expeditions. From the three datasets, use the "expeditions". Reproduce the plot below! Notice a few things:
+The 2020-09-22 TidyTuesday datasets are about climbing expeditions. From the three datasets, use the "expeditions". Reproduce the plot below! Notice a few things:
 
 -   Use `forcats::fct_lump()` to get the 15 most frequent peaks, and drop the "Other" category.
 -   The bars are ordered by the sum of all expeditions (use `fct_reorder()`).
 -   The bar colors use the viridis palette and light theme.
 
 ```{r}
+tt_data <- tt_load("2020-09-22")
+exps <- tt_data$expeditions
 
+exps$peak_name <- fct_lump_n(exps$peak_name, 15, w = NULL, other_level = "Other") 
+filtered_exps <- exps %>%
+  filter(peak_name != "Other")
+
+ggplot(filtered_exps, aes(y = fct_rev(fct_infreq(peak_name)), fill = season))+
+  geom_bar() +
+  theme(legend.position="bottom") + 
+  ggtitle("The 15 most popular peaks stacked by season of expedition") +
+  xlab("Number of expeditions") +
+  ylab("") +
+  scale_fill_viridis(discrete = TRUE)
 ```
 
 ## Task 2: PhDs awarded
 
-The 2019-02-19 TidyTueday dataset is about phd-s awarded by year and field. There is only one dataset, it is called `phd_by_field`. Reproduce the plot below!
+The 2019-02-19 TidyTuesday dataset is about phd-s awarded by year and field. There is only one dataset, it is called `phd_by_field`. Reproduce the plot below!
 
 Notes:
 
@@ -45,12 +60,28 @@ Notes:
 -   The line size is 1.2, the colors are from the brewer "Dark2" palette. The theme is set to minimal.
 
 ```{r}
+tt_data <- tt_load("2019-02-19")
+phds <- tt_data$phd_by_field
 
+phds <- phds %>%
+  drop_na() %>%
+  group_by(broad_field,year) %>%
+  summarise(n_phds = sum(n_phds))
+  
+ggplot(phds, aes(x = year, y = n_phds, group = broad_field)) +
+  geom_line(aes(color = broad_field), size = 1.2) +
+  ggtitle("Number of awarded PhDs in the US by year") +
+  scale_x_continuous(breaks = round(seq(min(phds$year), max(phds$year), by = 2),1)) +
+  scale_y_continuous(labels = scales::comma_format()) +
+  ylab("") + 
+  xlab("") +
+  labs(color = "Broad field") +
+  scale_fill_brewer("Dark2")
 ```
 
 ## Task 3: Commute in the US
 
-The 2019-11-05 TidyTueday dataset is about commuting to work in each city in the US by bike or on foot. There is only one dataset, it is called `commute`. Reproduce the plot below!
+The 2019-11-05 TidyTuesday dataset is about commuting to work in each city in the US by bike or on foot. There is only one dataset, it is called `commute`. Reproduce the plot below!
 
 Notes:
 
@@ -59,5 +90,23 @@ Notes:
 -   The point size is 2, . The theme is set to light.
 
 ```{r}
+tt_data <- tt_load("2019-11-05")
+commute <- tt_data$commute
 
+commute <- commute %>%
+  drop_na() %>%
+  group_by(state,mode,state_abb,state_region) %>%
+  summarise(n = sum(n)) %>%
+  spread(mode, n)
+
+ggplot(commute, aes(x = Walk, y = Bike, label = state_abb,color = state_region)) + 
+  scale_x_continuous(trans=log_trans(),breaks = log_breaks(),labels = scales::comma_format()) +
+  scale_y_continuous(trans=log_trans(),breaks = log_breaks(),labels = scales::comma_format()) +
+  geom_point(size = 2, aes(color = state_region)) +
+  ggtitle("The number of people walking vs. biking to work in each USA state") +
+  ylab("Number of ppl biking to work (log N)") + 
+  xlab("Number of ppl walking to work (log N)") +
+  labs(color = "State region") +
+  geom_text(color = "black", check_overlap = TRUE)
 ```
+
