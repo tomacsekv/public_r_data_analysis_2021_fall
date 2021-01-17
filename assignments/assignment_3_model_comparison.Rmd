@@ -1,6 +1,6 @@
 ---
 title: "Assignment 3: Model comparison"
-author: "Marton Kovacs"
+author: "Vivien Tomacsek"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -59,7 +59,9 @@ In your discussion of the findings, briefly interpret the results of the above a
 Read the dataset used in this assignment. Pay attention to the extension of the datafile.
 
 ```{r}
-
+library(readxl)
+setwd("..")
+paindata <- read_excel("data/assignment_3_dataset.xlsx")
 ```
 
 ## Data and model diagnostics 
@@ -68,8 +70,78 @@ Read the dataset used in this assignment. Pay attention to the extension of the 
 
 Run an exploratory data analysis (EDA) to investigate the dataset.
 
-```{r}
+```{r warning = FALSE}
+library(ggplot2)
+# pain coded from 0 to 10
+print("Pain is numeric:")
+is.numeric(paindata$pain)
+ggplot(paindata,aes(pain)) + 
+  geom_histogram(stat="count")
+# yet there is a data point with the value 50
 
+# sex should be male/female
+print("Sex is a factor:")
+is.factor(paindata$sex)
+ggplot(paindata,aes(sex)) + 
+  geom_histogram(stat="count")
+# one is coded as woman
+
+# age should be numeric
+print("Age is numeric:")
+is.numeric(paindata$age)
+# check age on a histogram
+ggplot(paindata,aes(age)) + 
+  geom_histogram(stat="count")
+
+# weight should be numeric
+print("Weight is numeric:")
+is.numeric(paindata$weight)
+ggplot(paindata,aes(weight)) + 
+  geom_histogram(binwidth = 5)
+# a person with 33 kg of mass is possibly severely anorexic
+
+# IQ should be numeric 20 - 180
+print("IQ is numeric:")
+is.numeric(paindata$IQ)
+ggplot(paindata,aes(IQ)) + 
+  geom_histogram(binwidth = 5)
+
+# income should be numeric
+print("Income is numeric:")
+is.numeric(paindata$household_income)
+ggplot(paindata,aes(household_income)) + 
+  geom_histogram(binwidth = 10000)
+
+# check stait - should be btwn 20-80
+print("STAIT is numeric:")
+is.numeric(paindata$STAI_trait)
+ggplot(paindata,aes(STAI_trait)) + 
+  geom_histogram(stat="count")
+print("Minimum of STAIT")
+min(paindata$STAI_trait)
+print("Maximum of STAIT")
+max(paindata$STAI_trait)
+
+# check catastrophizing - should be btwn 0-52
+print("Pain catastrophizing is numeric:")
+is.numeric(paindata$pain_cat)
+ggplot(paindata,aes(pain_cat)) + 
+  geom_histogram(stat="count")
+
+# check mindfulness - should be btwn 1-6
+print("Mindfulness is numeric:")
+is.numeric(paindata$mindfulness)
+ggplot(paindata,aes(mindfulness)) + 
+  geom_histogram(binwidth = 1)
+# an observation is over the max (6.22)
+
+# ◙check cortisol
+print("Variables regarding cortisol are numeric (ser-sal):")
+is.numeric(paindata$cortisol_serum)
+is.numeric(paindata$cortisol_saliva)
+ggplot(paindata,aes(cortisol_serum, cortisol_saliva))+
+  geom_point()+
+  geom_smooth(method = "lm")
 ```
 
 #### Correct coding errors
@@ -77,7 +149,17 @@ Run an exploratory data analysis (EDA) to investigate the dataset.
 If you find values in the dataset during the EDA, that are not correct based on the provided descriptions of the variables of the dataset please correct them here.
 
 ```{r}
-
+library(dplyr)
+# there was a mistake in the coding of sex
+paindata$sex <- recode(paindata$sex, woman = "female")
+# pain is 50 in an observation
+# since it is not clear what should this value be (either 5 or 10) we should exclude this obs
+paindata <- paindata %>%
+  filter(pain <= 10)
+# mindfulness is 6.22 in an observation while the max is 6
+# again this could be 5.22 or 3.22 (typing on the numpad)
+paindata <- paindata %>%
+  filter(mindfulness <= 6)
 ```
 
 ### Model diagnostics
@@ -86,6 +168,8 @@ If you find values in the dataset during the EDA, that are not correct based on 
 In order to test the more complex model for outliers and to test the assumptions first build the model.
 
 ```{r}
+# predictors: age, sex, STAI, pain catastrophizing, mindfulness, and cortisol measures
+cmplx_mdl <- lm(pain ~ age + sex + STAI_trait + pain_cat + mindfulness + cortisol_serum + cortisol_saliva, data = paindata)
 
 ```
 
@@ -94,7 +178,17 @@ In order to test the more complex model for outliers and to test the assumptions
 Check for outlier values in the model.
 
 ```{r}
+library(broom)
+library(ggfortify)
 
+cmplx_mdl %>% 
+  augment() %>% 
+  arrange(desc(.cooksd)) %>% 
+  head()
+
+autoplot(cmplx_mdl, which = 4:6, nrow = 3, ncol = 1)
+# Cook's distance is below 0.1 in all cases
+# no observation has an outstanding influence on the model
 ```
 
 #### Checking assumptions
@@ -102,19 +196,24 @@ Check for outlier values in the model.
 Check the normality assumption.
 
 ```{r}
+library(olsrr)
+ggplot(cmplx_mdl, aes(sample = .resid)) +
+  stat_qq() +
+  stat_qq_line()
 
+ols_test_normality(cmplx_mdl)
 ```
 
 Check the linearity assumption.
 
 ```{r}
-
+plot(cmplx_mdl, 1)
 ```
 
 Check the homoscedasticty assumption (homogeneity of variance).
 
 ```{r}
-
+plot(cmplx_mdl,3)
 ```
 
 Check the multicollinearity assumption.
@@ -126,7 +225,9 @@ https://statisticalhorizons.com/multicollinearity
 http://blog.minitab.com/blog/understanding-statistics/handling-multicollinearity-in-regression-analysis
 
 ```{r}
-
+library(car)
+vif(cmplx_mdl)
+# cortisol variables are correlated we will have to take one out of the model
 ```
 
 ### Making decision based on model diagnostics
@@ -134,13 +235,20 @@ http://blog.minitab.com/blog/understanding-statistics/handling-multicollinearity
 If based on the assumption tests you decide to drop a predictor variable you should do that here. Create your updated model.
 
 ```{r}
-
+cmplx_mdl_upd <- lm(pain ~ age + sex + STAI_trait + pain_cat + mindfulness + cortisol_serum, data = paindata)
 ```
 
 #### Checking outliers of the updated model
 
 ```{r}
+cmplx_mdl_upd %>% 
+  augment() %>% 
+  arrange(desc(.cooksd)) %>% 
+  head()
 
+autoplot(cmplx_mdl_upd, which = 4:6, nrow = 3, ncol = 1)
+# Cook's distance is still below 0.1, yet three values pop out of the plot - 80,105,109
+# these observations can not be excluded with good conscience
 ```
 
 #### Checking assumptions of the updated model
@@ -148,25 +256,29 @@ If based on the assumption tests you decide to drop a predictor variable you sho
 Normality assumption
 
 ```{r}
+ggplot(cmplx_mdl_upd, aes(sample = .resid)) +
+  stat_qq() +
+  stat_qq_line()
 
+ols_test_normality(cmplx_mdl_upd)
 ```
 
 Linearity assumption
 
 ```{r}
-
+plot(cmplx_mdl_upd, 1)
 ```
 
 Homoscedasticty assumption (homogeneity of variance)
 
 ```{r}
-
+plot(cmplx_mdl_upd,3)
 ```
 
 Multicollinearity assumption
 
 ```{r}
-
+vif(cmplx_mdl_upd)
 ```
 
 ## Model comparison
@@ -174,18 +286,34 @@ Multicollinearity assumption
 Create the simple model and get the results of the model that needs to be reported based on the What to report section.
 
 ```{r}
-
+smpl_mdl <- lm(pain ~ age + sex, data = paindata)
+summary(smpl_mdl)
+confint(smpl_mdl)
 ```
 
 Create the more complex model based on the results of the model diagnostics. Also, get the results that needs to be reported based on the What to report section.
 
 ```{r}
-
+cmplx_mdl <- lm(pain ~ age + sex + STAI_trait + pain_cat + mindfulness + cortisol_serum, data = paindata)
+summary(cmplx_mdl)
+confint(cmplx_mdl)
 ```
+
+Complex model:
+
+Y = 1.94 + (-0.03 x age) + 0.32 x sex + (-0.01) x STAI_trait + 0.08 x pain_cat + (-0.14) x mindfulness + 0.54 x cortisol_serum 
 
 Compare the two models.
 
 ```{r}
+anova(smpl_mdl, cmplx_mdl)
+print("Akaike info criterion of the simple model")
+AIC(smpl_mdl)
+print("Akaike info criterion of the complex model")
+AIC(cmplx_mdl)
 
 ```
+
+The complex model explains the variance in pain perception better as serum cortisol levels and pain catastrophizing seem to be good predictors of pain perception.
+
 
