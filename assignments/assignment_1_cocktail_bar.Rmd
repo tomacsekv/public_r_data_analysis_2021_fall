@@ -1,6 +1,6 @@
 ---
 title: "Assignment 1: The cocktail bar (data transformation and manipulation)"
-author: "Tamas Nagy"
+author: "Vivien Tomacsek"
 output: html_document
 editor_options: 
   chunk_output_type: console
@@ -32,7 +32,7 @@ Note: There are several different ways to solve these tasks, feel free to come u
 Read the cocktail dataset from: <https://github.com/nthun/cocktail-balance> You can also find the codebook there.
 
 ```{r}
-
+cocktails <- read_tsv("https://raw.githubusercontent.com/nthun/cocktail-balance/master/cocktail_data.tsv")
 ```
 
 ## 2. Transform the data table and clean the ingredient variable!
@@ -40,7 +40,10 @@ Read the cocktail dataset from: <https://github.com/nthun/cocktail-balance> You 
 The ingredients are currently in a single cell for each cocktail. It would be better to put them in separate rows. Also, the variable should be cleaned of all quantities (e.g. 1/2 oz, 2 dashes, etc.), and the indicator of alcohol content (e.g. 47.3% abv). You will need to use this cleaned table in later tasks.
 
 ```{r}
-
+cocktails <- separate_rows(cocktails, ingredients, sep = "<b...", convert = TRUE)
+cocktails <- separate(cocktails, ingredients, c("howmuch","what"),sep = "(?<=oz |drop |dash |drops |dashes |bsp )")
+cocktails$what <- gsub(" +"," ",cocktails$what) 
+cocktails$what <- str_remove(cocktails$what, pattern = "\\s\\(\\d+(\\.\\d+){0,1}% abv\\)")
 ```
 
 ## 3. All ingredients in alphabetical order
@@ -48,7 +51,8 @@ The ingredients are currently in a single cell for each cocktail. It would be be
 Before opening the bar, you need to find a reliable supplier that has all the ingredients. You need to send a list of all possible ingredients you will need. They don't need the quantities (i.e. how many of these are needed), just the names of the ingredients.
 
 ```{r}
-
+ingredient_list <- unique(cocktails$what)
+ingredient_list <- ingredient_list[order(ingredient_list)]
 ```
 
 ## 4. Number of unique ingredients
@@ -56,7 +60,7 @@ Before opening the bar, you need to find a reliable supplier that has all the in
 How many different ingredients you will need?
 
 ```{r}
-
+length(ingredient_list)
 ```
 
 ## 5. What are the top 10 ingredients?
@@ -64,7 +68,9 @@ How many different ingredients you will need?
 What are the 10 most frequently used ingredients? If there are ties, you can list more than 10.
 
 ```{r}
-
+cocktails %>% 
+  count(what) %>%
+  top_n(10)
 ```
 
 ## 6. Which cocktail(s) has/have the most ingredients?
@@ -72,7 +78,9 @@ What are the 10 most frequently used ingredients? If there are ties, you can lis
 Count the number of ingredients and filter all the cocktails that has that many.
 
 ```{r}
-
+cocktails %>% 
+  count(name) %>%
+  top_n(1)
 ```
 
 ## 7. How many ingredients appear in only one cocktail (rare ingredient)?
@@ -80,19 +88,31 @@ Count the number of ingredients and filter all the cocktails that has that many.
 Count all cocktails with only one ingredient, and
 
 ```{r}
-
+unique_ingredients <- cocktails %>%
+  count(what) %>%
+  filter(n == 1) %>%
+  pull(what)
+length(unique_ingredients)
 ```
 
 ## 8. Which cocktail has an ingredient that is only used in one cocktail?
 
 ```{r}
-
+cocktails_w_unique_ingredients <- cocktails %>%
+  filter(what %in% unique_ingredients) %>%
+  pull(name)
+cocktails_w_unique_ingredients <- unique(cocktails_w_unique_ingredients)
+cocktails_w_unique_ingredients
 ```
 
 ## 9. What are the cocktails without rare ingredients?
 
 ```{r}
-  
+cocktails_wo_unique_ingredients <- cocktails %>%
+  filter(!(name %in% cocktails_w_unique_ingredients)) %>%
+  pull(name)
+cocktails_wo_unique_ingredients <- unique(cocktails_wo_unique_ingredients)
+cocktails_wo_unique_ingredients  
 ```
 
 ## 10. Create a cheat sheet for the bartender!
@@ -100,11 +120,16 @@ Count all cocktails with only one ingredient, and
 Create a matrix that shows all cocktail names as rows and all ingredients as columns. When a cocktail requires an ingredient, there should be an "X" in the cell, otherwise, the cell should remain empty. Example:
 
 ```{r}
+cheatsheet <- cocktails %>%
+  pivot_wider(names_from = what, values_from = howmuch) %>%
+  select(-c(abv,acid,sugar,type,index,instructions,ncotw))
 
-```
+cheatsheet <- cheatsheet %>%
+  mutate_all(funs(str_replace(.,"NULL","")))
 
-```{r}
-
+cheatsheet <- cheatsheet %>%
+  mutate_all(funs(str_replace(.,".+","X")))
+cheatsheet
 ```
 
 Congrats, the bar is now officially open!
