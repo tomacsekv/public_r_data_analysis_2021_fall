@@ -85,8 +85,6 @@ cocktails %>%
 
 ## 7. How many ingredients appear in only one cocktail (rare ingredient)?
 
-Count all cocktails with only one ingredient, and
-
 ```{r}
 unique_ingredients <- cocktails %>%
   count(what) %>%
